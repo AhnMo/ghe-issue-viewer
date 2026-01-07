@@ -1,0 +1,190 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* GitHub-style Markdown Prose */
+.prose {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.prose p {
+  margin-bottom: 16px;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #1f2328;
+}
+
+.prose h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid #d0d7de; }
+.prose h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid #d0d7de; }
+.prose h3 { font-size: 1.25em; }
+.prose h4 { font-size: 1em; }
+
+.prose code {
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  background-color: rgba(175, 184, 193, 0.2);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+}
+
+.prose pre {
+  padding: 16px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.prose pre code {
+  padding: 0;
+  background-color: transparent;
+  border-radius: 0;
+}
+
+.prose ul, .prose ol {
+  padding-left: 2em;
+  margin-bottom: 16px;
+}
+
+.prose li {
+  margin-bottom: 4px;
+}
+
+.prose ul { list-style-type: disc; }
+.prose ol { list-style-type: decimal; }
+
+.prose blockquote {
+  padding: 0 1em;
+  color: #656d76;
+  border-left: 0.25em solid #d0d7de;
+  margin-bottom: 16px;
+}
+
+.prose a {
+  color: #0969da;
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 16px 0;
+}
+
+.prose hr {
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: #d0d7de;
+  border: 0;
+}
+
+.prose table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.prose table th, .prose table td {
+  padding: 6px 13px;
+  border: 1px solid #d0d7de;
+}
+
+.prose table th {
+  font-weight: 600;
+  background-color: #f6f8fa;
+}
+
+.prose table tr:nth-child(2n) {
+  background-color: #f6f8fa;
+}
+
+/* Task List (Checkboxes) */
+.prose .task-list-item {
+  list-style: none;
+  margin-left: -1.5em;
+}
+
+.prose .task-list-item input[type="checkbox"] {
+  margin-right: 0.5em;
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+  accent-color: #1f883d;
+}
+
+.prose .contains-task-list {
+  list-style: none;
+  padding-left: 1.5em;
+}
+
+/* Details / Summary (Collapsible) */
+.prose details {
+  margin-bottom: 16px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+}
+
+.prose details summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #1f2328;
+  list-style: none;
+}
+
+.prose details summary::-webkit-details-marker {
+  display: none;
+}
+
+.prose details summary::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.prose details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.prose details[open] summary {
+  border-radius: 6px 6px 0 0;
+  border-bottom: 1px solid #d0d7de;
+}
+
+.prose details > *:not(summary) {
+  padding: 12px;
+}
+
+.prose details > p:first-of-type {
+  margin-top: 0;
+}
+
+.prose details > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Strikethrough */
+.prose del {
+  text-decoration: line-through;
+  color: #656d76;
+}
