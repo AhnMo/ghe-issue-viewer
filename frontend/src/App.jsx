@@ -6,6 +6,9 @@ import IssueList from './pages/IssueList';
 import IssueDetail from './pages/IssueDetail';
 import PullRequestList from './pages/PullRequestList';
 import PullRequestDetail from './pages/PullRequestDetail';
+import CommitList from './pages/CommitList';
+import CommitDetail from './pages/CommitDetail';
+import CodeBrowser from './pages/CodeBrowser';
 
 const App = () => {
   return (
@@ -17,6 +20,9 @@ const App = () => {
           <Route path="/:owner/:repo/issues/:issueNumber" element={<IssueDetail />} />
           <Route path="/:owner/:repo/pulls" element={<PullRequestList />} />
           <Route path="/:owner/:repo/pull/:prNumber" element={<PullRequestDetail />} />
+          <Route path="/:owner/:repo/commits" element={<CommitList />} />
+          <Route path="/:owner/:repo/commit/:commitSha" element={<CommitDetail />} />
+          <Route path="/:owner/:repo/code/*" element={<CodeBrowser />} />
         </Routes>
       </Layout>
     </BrowserRouter>

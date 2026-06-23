@@ -1,53 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { CircleDot, GitPullRequestClosed, MessageSquare, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { GitCommit, AlertCircle, ChevronLeft, ChevronRight, GitBranch } from 'lucide-react';
 import { formatDate, getToken } from '../components/Layout';
 import TabNavigation from '../components/TabNavigation';
 
-// Parse q param: "is:open" -> "open"
-const parseQueryFilter = (q) => {
-  if (!q) return 'open';
-  const match = q.match(/is:(\w+)/);
-  return match ? match[1] : 'open';
-};
-
-// Build q param: "open" -> "is:open"
-const buildQueryFilter = (filter) => `is:${filter}`;
-
-const IssueList = () => {
+const CommitList = () => {
   const { owner, repo } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  
-  // Read from URL params
+
   const page = parseInt(searchParams.get('page') || '1', 10);
-  const filter = parseQueryFilter(searchParams.get('q'));
-  
-  const [issues, setIssues] = useState([]);
+  const selectedBranch = searchParams.get('sha') || '';
+
+  const [commits, setCommits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [hasMore, setHasMore] = useState(true);
-
-  // Update URL params
-  const updateParams = (newPage, newFilter) => {
-    setSearchParams({
-      page: newPage.toString(),
-      q: buildQueryFilter(newFilter)
-    });
-  };
-
-  const handleFilterChange = (newFilter) => {
-    updateParams(1, newFilter); // Reset to page 1 when filter changes
-  };
-
-  const handlePageChange = (newPage) => {
-    updateParams(newPage, filter);
-  };
+  const [hasMore, setHasMore] = useState(false);
+  const [branches, setBranches] = useState([]);
+  const [defaultBranch, setDefaultBranch] = useState('');
 
   useEffect(() => {
-    fetchIssues();
-  }, [owner, repo, page, filter]);
+    fetchMeta();
+  }, [owner, repo]);
 
-  const fetchIssues = async () => {
+  useEffect(() => {
+    fetchCommits();
+  }, [owner, repo, page, selectedBranch]);
+
+  const fetchMeta = async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const [repoRes, branchRes] = await Promise.all([
+        fetch(`/api/repos/${owner}/${repo}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/repos/${owner}/${repo}/branches`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      ]);
+      if (repoRes.ok) {
+        const repoData = await repoRes.json();
+        setDefaultBranch(repoData.default_branch);
+      }
+      if (branchRes.ok) {
+        const branchData = await branchRes.json();
+        setBranches(branchData.branches);
+      }
+    } catch (_) {}
+  };
+
+  const fetchCommits = async () => {
     const token = getToken();
     if (!token) {
       setError('Please set your PAT token first (click "Set Token" in the header)');
@@ -57,15 +55,18 @@ const IssueList = () => {
 
     setLoading(true);
     setError(null);
-    
+
     try {
+      const params = new URLSearchParams({ page: page.toString() });
+      if (selectedBranch) params.set('sha', selectedBranch);
+
       const response = await fetch(
-        `/api/issues/${owner}/${repo}?page=${page}&state=${filter}`,
+        `/api/commits/${owner}/${repo}?${params}`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
-      if (!response.ok) throw new Error('Failed to fetch issues');
+      if (!response.ok) throw new Error('Failed to fetch commits');
       const data = await response.json();
-      setIssues(data.issues);
+      setCommits(data.commits);
       setHasMore(data.has_more);
     } catch (err) {
       setError(err.message);
@@ -73,6 +74,20 @@ const IssueList = () => {
       setLoading(false);
     }
   };
+
+  const handleBranchChange = (branch) => {
+    const params = { page: '1' };
+    if (branch) params.sha = branch;
+    setSearchParams(params);
+  };
+
+  const handlePageChange = (newPage) => {
+    const params = { page: newPage.toString() };
+    if (selectedBranch) params.sha = selectedBranch;
+    setSearchParams(params);
+  };
+
+  const getFirstLine = (message) => message.split('\n')[0];
 
   return (
     <div>
@@ -83,30 +98,28 @@ const IssueList = () => {
         <span style={{ color: '#1f2328' }}>{owner}/{repo}</span>
       </div>
 
-      <TabNavigation owner={owner} repo={repo} activeTab="issues" />
+      <TabNavigation owner={owner} repo={repo} activeTab="commits" />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4 pb-4 border-b" style={{ borderColor: '#d0d7de' }}>
-        <h1 className="text-2xl font-semibold" style={{ color: '#1f2328' }}>
-          Issues
-        </h1>
-        
-        {/* Filter Tabs */}
-        <div className="flex rounded-md overflow-hidden border" style={{ borderColor: '#d0d7de' }}>
-          {['open', 'closed', 'all'].map((f) => (
-            <button
-              key={f}
-              onClick={() => handleFilterChange(f)}
-              className="px-3 py-1.5 text-sm font-medium capitalize transition-colors"
-              style={{
-                backgroundColor: filter === f ? '#0969da' : '#ffffff',
-                color: filter === f ? '#ffffff' : '#1f2328',
-              }}
+        <h1 className="text-2xl font-semibold" style={{ color: '#1f2328' }}>Commits</h1>
+
+        {/* Branch selector */}
+        {branches.length > 0 && (
+          <div className="flex items-center gap-2">
+            <GitBranch size={14} style={{ color: '#656d76' }} />
+            <select
+              value={selectedBranch || defaultBranch}
+              onChange={(e) => handleBranchChange(e.target.value === defaultBranch ? '' : e.target.value)}
+              className="px-2 py-1.5 text-sm rounded-md border outline-none"
+              style={{ borderColor: '#d0d7de', backgroundColor: '#ffffff', color: '#1f2328' }}
             >
-              {f}
-            </button>
-          ))}
-        </div>
+              {branches.map((b) => (
+                <option key={b.name} value={b.name}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Error */}
@@ -121,49 +134,42 @@ const IssueList = () => {
       {loading && (
         <div className="text-center py-12">
           <div className="animate-spin text-4xl mb-4">⏳</div>
-          <p style={{ color: '#656d76' }}>Loading issues...</p>
+          <p style={{ color: '#656d76' }}>Loading commits...</p>
         </div>
       )}
 
-      {/* Issue List */}
+      {/* Commit List */}
       {!loading && !error && (
         <div className="rounded-md border overflow-hidden" style={{ borderColor: '#d0d7de' }}>
-          {issues.length === 0 ? (
+          {commits.length === 0 ? (
             <div className="text-center py-12" style={{ backgroundColor: '#ffffff' }}>
-              <MessageSquare size={32} style={{ color: '#656d76' }} className="mx-auto mb-2" />
-              <p style={{ color: '#656d76' }}>No {filter !== 'all' ? filter : ''} issues found</p>
+              <GitCommit size={32} style={{ color: '#656d76' }} className="mx-auto mb-2" />
+              <p style={{ color: '#656d76' }}>No commits found</p>
             </div>
           ) : (
-            issues.map((issue) => (
+            commits.map((commit) => (
               <Link
-                key={issue.number}
-                to={`/${owner}/${repo}/issues/${issue.number}`}
+                key={commit.sha}
+                to={`/${owner}/${repo}/commit/${commit.sha}`}
                 className="block px-4 py-3 border-b last:border-b-0 hover:bg-gray-50 transition-colors"
                 style={{ borderColor: '#d0d7de', backgroundColor: '#ffffff' }}
               >
                 <div className="flex items-start gap-3">
-                  {/* State Icon */}
-                  {issue.state === 'open' ? (
-                    <CircleDot size={18} style={{ color: '#1f883d', marginTop: '2px' }} />
-                  ) : (
-                    <GitPullRequestClosed size={18} style={{ color: '#8250df', marginTop: '2px' }} />
-                  )}
-                  
+                  <GitCommit size={18} style={{ color: '#656d76', marginTop: '2px', flexShrink: 0 }} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold hover:text-blue-600" style={{ color: '#1f2328' }}>
-                        {issue.title}
-                      </span>
+                    <div className="font-semibold truncate" style={{ color: '#1f2328' }}>
+                      {getFirstLine(commit.message)}
                     </div>
                     <div className="mt-1 text-xs" style={{ color: '#656d76' }}>
-                      #{issue.number} opened {formatDate(issue.created_at)} by {issue.user_login}
-                      {issue.comments_count > 0 && (
-                        <span className="ml-3 inline-flex items-center gap-1">
-                          <MessageSquare size={12} /> {issue.comments_count}
-                        </span>
-                      )}
+                      {commit.author_name} · {formatDate(commit.authored_date)}
                     </div>
                   </div>
+                  <span
+                    className="font-mono text-xs px-2 py-0.5 rounded flex-shrink-0"
+                    style={{ backgroundColor: '#ddf4ff', color: '#0969da' }}
+                  >
+                    {commit.short_sha}
+                  </span>
                 </div>
               </Link>
             ))
@@ -172,7 +178,7 @@ const IssueList = () => {
       )}
 
       {/* Pagination */}
-      {!loading && !error && issues.length > 0 && (
+      {!loading && !error && commits.length > 0 && (
         <div className="flex justify-center gap-2 mt-6">
           <button
             onClick={() => handlePageChange(Math.max(1, page - 1))}
@@ -199,4 +205,4 @@ const IssueList = () => {
   );
 };
 
-export default IssueList;
+export default CommitList;

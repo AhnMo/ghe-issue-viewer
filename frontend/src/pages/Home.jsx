@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CircleDot, GitPullRequest, Building2, FolderGit2 } from 'lucide-react';
+import { CircleDot, GitPullRequest, Building2, FolderGit2, Code, GitCommit } from 'lucide-react';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -28,6 +28,18 @@ const Home = () => {
     }
   };
 
+  const goToCode = () => {
+    if (owner && repo) {
+      navigate(`/${owner}/${repo}/code`);
+    }
+  };
+
+  const goToCommits = () => {
+    if (owner && repo) {
+      navigate(`/${owner}/${repo}/commits`);
+    }
+  };
+
   return (
     <div className="text-center py-20">
       <div className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-6" style={{ backgroundColor: '#ddf4ff' }}>
@@ -36,7 +48,7 @@ const Home = () => {
         </svg>
       </div>
       <h1 className="text-3xl font-semibold mb-2" style={{ color: '#1f2328' }}>GHE Issue Viewer</h1>
-      <p className="mb-8" style={{ color: '#656d76' }}>Browse issues and pull requests from any repository</p>
+      <p className="mb-8" style={{ color: '#656d76' }}>Browse issues, pull requests, code, and commits from any repository</p>
       
       <div className="max-w-lg mx-auto">
         <div className="flex gap-2 mb-6">
@@ -68,26 +80,46 @@ const Home = () => {
           </div>
         </div>
         
-        <div className="flex gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <button
             onClick={goToIssues}
             disabled={!owner || !repo}
-            className="flex-1 px-4 py-3 text-sm font-semibold rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="px-4 py-3 text-sm font-semibold rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             style={{ backgroundColor: '#1f883d', color: '#ffffff' }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#1a7f37'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#1f883d'}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#1a7f37'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1f883d'}
           >
             <CircleDot size={18} /> Browse Issues
           </button>
           <button
             onClick={goToPRs}
             disabled={!owner || !repo}
-            className="flex-1 px-4 py-3 text-sm font-semibold rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="px-4 py-3 text-sm font-semibold rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             style={{ backgroundColor: '#8250df', color: '#ffffff' }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#6639ba'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#8250df'}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#6639ba'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#8250df'}
           >
             <GitPullRequest size={18} /> Browse PRs
+          </button>
+          <button
+            onClick={goToCode}
+            disabled={!owner || !repo}
+            className="px-4 py-3 text-sm font-semibold rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ backgroundColor: '#0969da', color: '#ffffff' }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#0550ae'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0969da'}
+          >
+            <Code size={18} /> Browse Code
+          </button>
+          <button
+            onClick={goToCommits}
+            disabled={!owner || !repo}
+            className="px-4 py-3 text-sm font-semibold rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ backgroundColor: '#e16f24', color: '#ffffff' }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#bc5e1e'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#e16f24'}
+          >
+            <GitCommit size={18} /> Browse Commits
           </button>
         </div>
       </div>

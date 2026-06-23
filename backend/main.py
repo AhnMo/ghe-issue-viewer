@@ -339,6 +339,325 @@ async def get_pull_request_with_diff(
     return PRDetailResponse(pull_request=pr_data, comments=comments_list, files=files_list)
 
 
+# ============ Commit Models ============
+
+class CommitSummary(BaseModel):
+    sha: str
+    short_sha: str
+    message: str
+    author_login: Optional[str]
+    author_name: str
+    authored_date: datetime
+
+class CommitListResponse(BaseModel):
+    commits: List[CommitSummary]
+    has_more: bool
+
+class CommitDetail(BaseModel):
+    sha: str
+    message: str
+    author_login: Optional[str]
+    author_name: str
+    author_email: str
+    authored_date: datetime
+    committer_name: str
+    committed_date: datetime
+    parent_shas: List[str]
+    additions: int
+    deletions: int
+    changed_files: int
+
+class CommitDetailResponse(BaseModel):
+    commit: CommitDetail
+    files: List[FileDiff]
+
+
+# ============ Code Browsing Models ============
+
+class RepoInfo(BaseModel):
+    default_branch: str
+    description: Optional[str]
+
+class TreeEntry(BaseModel):
+    name: str
+    path: str
+    type: str  # "file" or "dir"
+    size: Optional[int]
+    sha: str
+
+class TreeResponse(BaseModel):
+    entries: List[TreeEntry]
+    current_path: str
+    ref: str
+
+class FileContent(BaseModel):
+    name: str
+    path: str
+    size: int
+    content: str
+    encoding: str  # "text" or "binary" or "too_large"
+    sha: str
+    ref: str
+
+class ContentsResponse(BaseModel):
+    type: str  # "dir" or "file"
+    tree: Optional[TreeResponse]
+    file: Optional[FileContent]
+
+class BranchSummary(BaseModel):
+    name: str
+
+class BranchListResponse(BaseModel):
+    branches: List[BranchSummary]
+
+
+# ============ Commit Endpoints ============
+
+@app.get("/api/commits/{owner}/{repo}", response_model=CommitListResponse)
+async def list_commits(
+    owner: str,
+    repo: str,
+    page: int = 1,
+    sha: Optional[str] = None,
+    authorization: str = Header(..., description="GitHub PAT (e.g., 'Bearer <token>')")
+):
+    headers = {
+        "Authorization": authorization,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+
+    per_page = 30
+    params = {"page": page, "per_page": per_page}
+    if sha:
+        params["sha"] = sha
+
+    async with httpx.AsyncClient() as client:
+        url = f"{BASE_URL}/repos/{owner}/{repo}/commits"
+        res = await client.get(url, headers=headers, params=params)
+
+        if res.status_code != 200:
+            logger.error(f"GHE API Error listing commits: {res.status_code}")
+            raise HTTPException(status_code=res.status_code, detail="Failed to fetch commits")
+
+        commits_raw = res.json()
+
+    commits = [
+        CommitSummary(
+            sha=c["sha"],
+            short_sha=c["sha"][:7],
+            message=c["commit"]["message"],
+            author_login=c["author"]["login"] if c.get("author") else None,
+            author_name=c["commit"]["author"]["name"],
+            authored_date=c["commit"]["author"]["date"]
+        )
+        for c in commits_raw
+    ]
+
+    return CommitListResponse(commits=commits, has_more=len(commits_raw) == per_page)
+
+
+@app.get("/api/commits/{owner}/{repo}/{ref:path}", response_model=CommitDetailResponse)
+async def get_commit(
+    owner: str,
+    repo: str,
+    ref: str,
+    authorization: str = Header(..., description="GitHub PAT (e.g., 'Bearer <token>')")
+):
+    headers = {
+        "Authorization": authorization,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        url = f"{BASE_URL}/repos/{owner}/{repo}/commits/{ref}"
+        res = await client.get(url, headers=headers, params={"per_page": 100})
+
+        if res.status_code != 200:
+            logger.error(f"GHE API Error for commit {ref}: {res.status_code}")
+            raise HTTPException(status_code=res.status_code, detail="Commit not found or unauthorized")
+
+        c = res.json()
+
+    commit_data = CommitDetail(
+        sha=c["sha"],
+        message=c["commit"]["message"],
+        author_login=c["author"]["login"] if c.get("author") else None,
+        author_name=c["commit"]["author"]["name"],
+        author_email=c["commit"]["author"]["email"],
+        authored_date=c["commit"]["author"]["date"],
+        committer_name=c["commit"]["committer"]["name"],
+        committed_date=c["commit"]["committer"]["date"],
+        parent_shas=[p["sha"] for p in c.get("parents", [])],
+        additions=c.get("stats", {}).get("additions", 0),
+        deletions=c.get("stats", {}).get("deletions", 0),
+        changed_files=len(c.get("files", []))
+    )
+
+    files_list = [
+        FileDiff(
+            filename=f["filename"],
+            status=f["status"],
+            additions=f["additions"],
+            deletions=f["deletions"],
+            patch=f.get("patch")
+        )
+        for f in c.get("files", [])
+    ]
+
+    return CommitDetailResponse(commit=commit_data, files=files_list)
+
+
+# ============ Code Browsing Endpoints ============
+
+@app.get("/api/repos/{owner}/{repo}", response_model=RepoInfo)
+async def get_repo_info(
+    owner: str,
+    repo: str,
+    authorization: str = Header(..., description="GitHub PAT (e.g., 'Bearer <token>')")
+):
+    headers = {
+        "Authorization": authorization,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+
+    async with httpx.AsyncClient() as client:
+        res = await client.get(f"{BASE_URL}/repos/{owner}/{repo}", headers=headers)
+
+        if res.status_code != 200:
+            logger.error(f"GHE API Error for repo info: {res.status_code}")
+            raise HTTPException(status_code=res.status_code, detail="Failed to fetch repository info")
+
+        repo_raw = res.json()
+
+    return RepoInfo(
+        default_branch=repo_raw["default_branch"],
+        description=repo_raw.get("description")
+    )
+
+
+@app.get("/api/repos/{owner}/{repo}/branches", response_model=BranchListResponse)
+async def list_branches(
+    owner: str,
+    repo: str,
+    authorization: str = Header(..., description="GitHub PAT (e.g., 'Bearer <token>')")
+):
+    headers = {
+        "Authorization": authorization,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+
+    async with httpx.AsyncClient() as client:
+        res = await client.get(
+            f"{BASE_URL}/repos/{owner}/{repo}/branches",
+            headers=headers,
+            params={"per_page": 100}
+        )
+
+        if res.status_code != 200:
+            logger.error(f"GHE API Error listing branches: {res.status_code}")
+            raise HTTPException(status_code=res.status_code, detail="Failed to fetch branches")
+
+        branches_raw = res.json()
+
+    return BranchListResponse(
+        branches=[BranchSummary(name=b["name"]) for b in branches_raw]
+    )
+
+
+@app.get("/api/repos/{owner}/{repo}/contents", response_model=ContentsResponse)
+async def get_contents(
+    owner: str,
+    repo: str,
+    path: str = "",
+    ref: Optional[str] = None,
+    authorization: str = Header(..., description="GitHub PAT (e.g., 'Bearer <token>')")
+):
+    import base64
+
+    headers = {
+        "Authorization": authorization,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+
+    params = {}
+    if ref:
+        params["ref"] = ref
+
+    async with httpx.AsyncClient() as client:
+        url = f"{BASE_URL}/repos/{owner}/{repo}/contents/{path}"
+        res = await client.get(url, headers=headers, params=params)
+
+        if res.status_code != 200:
+            logger.error(f"GHE API Error for contents {path}: {res.status_code}")
+            raise HTTPException(status_code=res.status_code, detail="Failed to fetch contents")
+
+        contents_raw = res.json()
+
+    used_ref = ref or ""
+
+    # Directory: GHE returns a list
+    if isinstance(contents_raw, list):
+        entries = []
+        for entry in contents_raw:
+            entries.append(TreeEntry(
+                name=entry["name"],
+                path=entry["path"],
+                type="dir" if entry["type"] == "dir" else "file",
+                size=entry.get("size") if entry["type"] == "file" else None,
+                sha=entry["sha"]
+            ))
+        # Sort: dirs first (alphabetical), then files (alphabetical)
+        entries.sort(key=lambda e: (0 if e.type == "dir" else 1, e.name.lower()))
+        return ContentsResponse(
+            type="dir",
+            tree=TreeResponse(entries=entries, current_path=path, ref=used_ref),
+            file=None
+        )
+
+    # File: GHE returns a single object
+    f = contents_raw
+    if f.get("type") != "file":
+        raise HTTPException(status_code=400, detail="Unsupported content type")
+
+    encoding = f.get("encoding", "none")
+    raw_content = f.get("content", "")
+
+    if not raw_content:
+        # File too large (>1MB) — GHE omits content
+        decoded = ""
+        file_encoding = "too_large"
+    elif encoding == "base64":
+        try:
+            decoded_bytes = base64.b64decode(raw_content)
+            decoded = decoded_bytes.decode("utf-8")
+            file_encoding = "text"
+        except (UnicodeDecodeError, Exception):
+            decoded = ""
+            file_encoding = "binary"
+    else:
+        decoded = raw_content
+        file_encoding = "text"
+
+    return ContentsResponse(
+        type="file",
+        tree=None,
+        file=FileContent(
+            name=f["name"],
+            path=f["path"],
+            size=f.get("size", 0),
+            content=decoded,
+            encoding=file_encoding,
+            sha=f["sha"],
+            ref=used_ref
+        )
+    )
+
+
 # ============ User Endpoint ============
 
 class UserInfo(BaseModel):

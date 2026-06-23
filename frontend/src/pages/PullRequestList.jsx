@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { GitPullRequest, GitMerge, CircleDot, AlertCircle, ChevronLeft, ChevronRight, GitBranch } from 'lucide-react';
+import { GitPullRequest, GitMerge, AlertCircle, ChevronLeft, ChevronRight, GitBranch } from 'lucide-react';
 import { formatDate, getToken } from '../components/Layout';
+import TabNavigation from '../components/TabNavigation';
 
 // Parse q param: "is:open" -> "open"
 const parseQueryFilter = (q) => {
@@ -98,23 +99,7 @@ const PullRequestList = () => {
         <span style={{ color: '#1f2328' }}>{owner}/{repo}</span>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-4 mb-4 border-b" style={{ borderColor: '#d0d7de' }}>
-        <Link 
-          to={`/${owner}/${repo}/issues?page=1&q=is:open`}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors"
-          style={{ color: '#656d76' }}
-        >
-          <CircleDot size={16} /> Issues
-        </Link>
-        <Link 
-          to={`/${owner}/${repo}/pulls?page=1&q=is:open`}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors relative"
-          style={{ color: '#1f2328', borderBottom: '2px solid #fd8c73', marginBottom: '-1px' }}
-        >
-          <GitPullRequest size={16} /> Pull Requests
-        </Link>
-      </div>
+      <TabNavigation owner={owner} repo={repo} activeTab="pulls" />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4 pb-4 border-b" style={{ borderColor: '#d0d7de' }}>
